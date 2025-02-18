@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nearest Location with Path</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Find Nearest Location with Path</h1>
+    <div id="map"></div>
+    <p id="result"></p>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([51.505, -0.09], 13);
+
+        // Add a tile layer to the map
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Example locations to compare
+        const locations = [
+            { lat: 13.0836939, lng: 80.270186, name: "Location 1" },
+            { lat: 12.98815675, lng: 77.62260003796, name: "Location 2" },
+            { lat: 17.3724, lng: 78.4378, name: "Location 3" }
+
+        ];
+
+        // Add markers for the locations
+        locations.forEach(location => {
+            L.marker([location.lat, location.lng]).addTo(map).bindPopup(location.name);
+        });
+
+        // Get user's current location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    const userLocation = L.latLng(userLat, userLng);
+
+                    // Add a marker for the user's location
+                    L.marker(userLocation).addTo(map).bindPopup("You are here").openPopup();
+
+                    // Calculate distances to all locations
+                    const distances = locations.map(location => {
+                        const locLatLng = L.latLng(location.lat, location.lng);
+                        const distance = userLocation.distanceTo(locLatLng);
+                        return { name: location.name, latLng: locLatLng, distance };
+                    });
+
+                    // Find the nearest location
+                    const nearest = distances.reduce((prev, curr) => (prev.distance < curr.distance ? prev : curr));
+
+                    // Update UI with the nearest location
+                    document.getElementById('result').textContent =
+                        `The nearest location is ${nearest.name}, approximately ${(nearest.distance / 1000).toFixed(2)} km away.`;
+
+                    // Add a route to the nearest location
+                    L.Routing.control({
+                        waypoints: [userLocation, nearest.latLng],
+                        routeWhileDragging: false,
+                        addWaypoints: false,
+                        createMarker: function (i, waypoint) {
+                            return L.marker(waypoint.latLng).bindPopup(
+                                i === 0 ? "You are here" : nearest.name
+                            );
+                        }
+                    }).addTo(map);
+                },
+                (error) => {
+                    console.error(error);
+                    document.getElementById('result').textContent = "Unable to fetch your location.";
+                }
+            );
+        } else {
+            document.getElementById('result').textContent = "Geolocation is not supported by your browser.";
+        }
+    </script>
+</body>
+</html>
